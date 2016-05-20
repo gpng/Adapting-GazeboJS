@@ -1,0 +1,45 @@
+-- Demonstration of random movement of car. State is extracted before action.
+-- Libraries
+local async = require('async')
+
+-- Functions
+function sleep(n)
+  os.execute("sleep " .. tonumber(n))
+end
+
+function http_get(equery)
+	async.curl.get({
+		host = 'http://localhost:8124',
+		query = equery,
+		format = 'json'
+	}, function(res)
+		if equery['type'] == 'state' then
+			position = res['pose'][1]['position']
+		end
+	end)
+	async.go()
+	return position
+end
+
+-- Constants
+nReps = 10000
+actionTime = 2
+realTimeFactor = 5
+
+-- Set real time factor
+http_get({type = 'real_time_factor', select = '5'})
+-- Reset position and action
+http_get({type = 'reset'})
+for i = 1,nReps do
+	-- Random action selected
+	http_get({type = 'action', select = torch.random(3)})
+	-- Allow action to run for designated action time
+	sleep(actionTime)
+	-- Pause
+	http_get({type = 'pause', select = '1'})
+	-- Unpause
+	http_get({type = 'pause', select = '0'})
+	-- Extract state
+	position = http_get({type = 'state', select = '0'})
+	print(position)
+end

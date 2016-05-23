@@ -1,0 +1,110 @@
+-- Grid World adaptation. Attempts to drive car to position (3,3). Terminal states out of 9x9 box around origin (0, 0)
+-- Libraries
+local async = require('async')
+local Brain = require('deepqlearn')
+
+-- Utility functions
+function sleep(n)
+  os.execute("sleep " .. tonumber(n))
+end
+
+function http_get(equery)
+	async.curl.get({
+		host = 'http://localhost:8124',
+		query = equery,
+		format = 'json'
+	}, function(res)
+		if equery['type'] == 'state' then
+			position = res['pose'][1]['position']
+		end
+	end)
+	async.go()
+	return position
+end
+
+-- Mountain Car functions
+function get_state(oldPosition)
+	local terminal, reward, position
+	local velocity = {}
+	position = http_get({type = 'state', select = '0'})
+	velocity[1] = oldPosition[1] - position.x
+	velocity[2] = oldPosition[2] - position.y
+	if torch.abs(position.x) > 3 or torch.abs(position.y) > 3 then
+		terminal = true
+	else
+		terminal = false
+	end
+	reward = -(torch.abs(position.x - 3) + torch.abs(position.y - 3))
+	return {position.x, position.y}, velocity, terminal, reward
+end
+
+function reset_state()
+	http_get({type = 'reset'})
+	http_get({type = 'action', select = '0'})
+end
+
+-- Constants to be set
+local nEpisodes = 50
+local actionTime = 1
+local realTimeFactor = 3
+local nActions = 3
+
+-- Variables
+local episodes, steps, totalReward = 0, 0, 0
+local position, velocity, terminal, reward, observation
+
+-- Result tables
+local nSteps = {}
+local nReward = {}
+
+-- Initialize NN with 4 inputs (positions and velocity) and 3 outputs (actions)
+Brain.init(4, 3)
+-- Set real time factor
+http_get({type = 'real_time_factor', select = realTimeFactor})
+-- Reset position and action
+reset_state()
+http_get({type = 'pause', select = '0'})
+position, velocity, terminal, reward = get_state({0, 0})
+
+while episodes < nEpisodes do
+	-- Send input to brain and receive action (int)
+	local action = Brain.forward(position)
+	-- Send action to gazebo
+	http_get({type = 'action', select = action})
+	-- Allow action to run for designated action time
+	sleep(actionTime)
+	-- Pause
+	http_get({type = 'pause', select = '1'})
+	-- Unpause
+	http_get({type = 'pause', select = '0'})
+	-- Extract state
+	position, velocity, terminal, reward = get_state(position)
+	observation = position
+	table.insert(observation, velocity[1])
+	table.insert(observation, velocity[2])
+	-- Send reward to NN for learning
+	Brain.backward(reward)
+	steps = steps + 1
+	totalReward = totalReward + reward
+	if terminal == true then
+		table.insert(nSteps, steps)
+		table.insert(nReward, totalReward)
+		episodes = episodes + 1
+		reset_state()
+		steps = 0
+		totalReward = 0
+	end
+	print('Episode: ' .. episodes)
+	print('Steps: ' .. steps)
+	print('Reward: ' .. reward)
+	print('Total Reward: ' .. totalReward)
+end
+nStepsS = torch.serialize(nSteps, "ascii")
+torch.save("nSteps.txt", nStepsS, "ascii")
+nStepsS = torch.serialize(nReward, "ascii")
+torch.save("Rewards.txt", nStepsS, "ascii")
+
+
+
+
+

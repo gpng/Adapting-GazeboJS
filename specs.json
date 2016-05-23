@@ -7,6 +7,8 @@
 	"actions":
 	[
 		[
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/my_robot/joint_cmd", "msg": { "name": "my_robot::left_wheel_hinge", "force": 0 }},
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/my_robot/joint_cmd", "msg": { "name": "my_robot::right_wheel_hinge", "force": 0 }},
 			{"type": "gazebo.msgs.JointCmd", "topic": "~/my_robot/joint_cmd", "msg": { "name": "my_robot::left_wheel_hinge", "velocity": { "target": 0 }}},
 			{"type": "gazebo.msgs.JointCmd", "topic": "~/my_robot/joint_cmd", "msg": { "name": "my_robot::right_wheel_hinge", "velocity": { "target": 0 }}}
 		],
@@ -15,12 +17,12 @@
 			{"type": "gazebo.msgs.JointCmd", "topic": "~/my_robot/joint_cmd", "msg": { "name": "my_robot::right_wheel_hinge", "velocity": { "target": 1 }}}
 		],
 		[
-			{"type": "gazebo.msgs.JointCmd", "topic": "~/my_robot/joint_cmd", "msg": { "name": "my_robot::left_wheel_hinge", "velocity": { "target": 0 }}},
-			{"type": "gazebo.msgs.JointCmd", "topic": "~/my_robot/joint_cmd", "msg": { "name": "my_robot::right_wheel_hinge", "velocity": { "target": 1 }}}
-		],
-		[
 			{"type": "gazebo.msgs.JointCmd", "topic": "~/my_robot/joint_cmd", "msg": { "name": "my_robot::left_wheel_hinge", "velocity": { "target": 1 }}},
 			{"type": "gazebo.msgs.JointCmd", "topic": "~/my_robot/joint_cmd", "msg": { "name": "my_robot::right_wheel_hinge", "velocity": { "target": 0 }}}
+		],
+		[
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/my_robot/joint_cmd", "msg": { "name": "my_robot::left_wheel_hinge", "velocity": { "target": 0 }}},
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/my_robot/joint_cmd", "msg": { "name": "my_robot::right_wheel_hinge", "velocity": { "target": 1 }}}
 		]
 	]
 }

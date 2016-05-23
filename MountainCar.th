@@ -27,12 +27,13 @@ actionTime = 2
 realTimeFactor = 5
 
 -- Set real time factor
-http_get({type = 'real_time_factor', select = '5'})
+http_get({type = 'real_time_factor', select = realTimeFactor})
 -- Reset position and action
 http_get({type = 'reset'})
+http_get({type = 'action', select = '0'})
 for i = 1,nReps do
 	-- Random action selected
-	http_get({type = 'action', select = torch.random(3)})
+	http_get({type = 'action', select = torch.random(1, 3)})
 	-- Allow action to run for designated action time
 	sleep(actionTime)
 	-- Pause

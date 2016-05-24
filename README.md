@@ -18,12 +18,25 @@ Javascript server for connecting machine learning algorithms to [Gazebo Robot Si
 ####RLI_v1.js
 
 * Javascript server using NodeJS. 
-* Takes input in the form of HTTP POST/GET requests. Outputs JSON messages to Gazebo server based on commands in specs.json
-* Completed. Additional features may still be added if required.
+* Takes input in the form of HTTP POST/GET requests. Outputs JSON messages to Gazebo server via publishing to topics based on commands in specs.json.
+* Queries used to specify inputs. Current queries are `type` and `select` 
+* Available commands are:
+ * Reset world state `http://localhost:8124/?type=reset`
+ * Pause `http://localhost:8124/?type=pause&select=1`, `select=0` to unpause
+ * Request state `http://localhost:8124/?type=state&select=0`. The state is then sent as a response string which can be parsed in JSON.
+ * Send action 1 `http://localhost:8124/?type=state&select=0`
+
 
 #### specs.json
 * Contains commands used by RLI. At this point, includes only state extraction and action commands. Action 0 used as the reset or default action. 
 * To be configured per experiment
+* Each state has 2 fields `type` and `topic`. 
+* Each action has 2 fields `type`, `topic` and `msg`
+* `type`: Type of message to send. Examples are PosesStamped, JointCmd. Can be found in the [Gazebo transport library](https://bitbucket.org/osrf/gazebo/src/8b0c2de0886a/gazebo/msgs/?at=gazebo_1.9).
+* `topic`: Gazebo topic to publish to. Available topics can be found using `gz topic -l`. Examples are `~/my_robot/joint_cmd`
+* `msg`: Message to be published. Examples are `{ "name": "my_robot::left_wheel_hinge", "force": 0 }`. Messages are usually JSON objects.
+* `type`, `topic` and `msg` must match, i.e. the joint_cmd topic can only receive a JointCmd message.
+* Each action can have multiple commands. 
 
 ###__Tests__
 ####MountainCar.th

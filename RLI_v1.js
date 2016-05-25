@@ -6,6 +6,7 @@ var obj = JSON.parse(fs.readFileSync('specs.json', 'utf8'));
 gazebo.publish(obj.actions[1][0].type, obj.actions[1][0].topic, obj.actions[1][0].msg);	
 gazebo.publish('gazebo.msgs.Physics', '~/physics', { real_time_update_rate: 1});
 console.log("Dummy action");
+options = {format:'jpeg', encoding:'binary'}
 
 // Creating http server on port 8124
 http.createServer(function(req, res)
@@ -62,16 +63,44 @@ http.createServer(function(req, res)
 		}
 		res.end("Response end");
 	}
-	if (action == '/favicon.ico')
-	{
-		console.log('favicon.ico requested -> ignore');
-		res.end("Response end");
-	}
 	if (type == "real_time_factor")
 	{	
 		console.log('helloworld')
 		gazebo.publish('gazebo.msgs.Physics', '~/physics', { real_time_update_rate: select/0.001});
 		res.end('Real time factor')
+	}
+	if (type == "image") 
+	{	
+		gazebo.subscribeToImageTopic(obj.cameras[select].topic, function(err, img)
+		{
+			console.log('Saving ' + obj.cameras[select].msg);
+			if (err)
+			{
+				console.log('error: ' + err);
+				return;
+			}
+			fs.writeFile(obj.cameras[select].msg, img, {encoding:'binary'}, function(err)
+			{
+				if (err) console.log('ERROR: ' + err);
+				else console.log('Saved');
+			});
+			fs.readFile(obj.cameras[select].msg, function(err,data) 
+			{
+				if (err) console.log('ERROR: ' + err);
+				else
+				{
+					res.writeHead(200, {'Content-Type': 'image/jpeg'});
+					res.end(data);
+				}
+			});
+			gazebo.unsubscribe(obj.cameras[select].topic);
+		}, options);
+		
+	}
+	if (action == '/favicon.ico')
+	{
+		console.log('favicon.ico requested -> ignore');
+		res.end("Response end");
 	}
 }).listen(8124);
 console.log('Server running at http://localhost:8124/');

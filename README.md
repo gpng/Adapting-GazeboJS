@@ -23,6 +23,7 @@ Javascript server for connecting machine learning algorithms to [Gazebo Robot Si
 * Available commands are:
  * Reset world state `http://localhost:8124/?type=reset`
  * Pause `http://localhost:8124/?type=pause&select=1`, `select=0` to unpause
+ * Save image from camera 0 `http://localhost:8124/?type=image&select=0`
  * Request state `http://localhost:8124/?type=state&select=0`. The state is then sent as a response string which can be parsed in JSON.
  * Send action 1 `http://localhost:8124/?type=state&select=0`
 
@@ -32,6 +33,7 @@ Javascript server for connecting machine learning algorithms to [Gazebo Robot Si
 * To be configured per experiment
 * Each state has 2 fields `type` and `topic`. 
 * Each action has 2 fields `type`, `topic` and `msg`
+* Each camera has 2 fields `topic` and `msg`. The `msg` here will refer to the filepath for saving the image.
 * `type`: Type of message to send. Examples are PosesStamped, JointCmd. Can be found in the [Gazebo transport library](https://bitbucket.org/osrf/gazebo/src/8b0c2de0886a/gazebo/msgs/?at=gazebo_1.9).
 * `topic`: Gazebo topic to publish to. Available topics can be found using `gz topic -l`. Examples are `~/my_robot/joint_cmd`
 * `msg`: Message to be published. Examples are `{ "name": "my_robot::left_wheel_hinge", "force": 0 }`. Messages are usually JSON objects.

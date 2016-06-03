@@ -2,10 +2,49 @@
 -- Environment from https://github.com/Kaixhin/rlenvs
 -- DQN code from https://github.com/blakeMilner/DeepQLearning
 -- Libraries
+require('nn')
+require('deepqlearn')
 local image = require('image')
 local MountainCar = require('rlenvs.MountainCar')
 local Brain = require('deepqlearn')
 local env = MountainCar()
+local signal = require('posix.signal')
+
+-- Utility functions
+-- Used to escape "'s by toCSV
+function escapeCSV (s)
+  if string.find(s, '[,"]') then
+    s = '"' .. string.gsub(s, '"', '""') .. '"'
+  end
+  return s
+end
+-- Convert from table to CSV string
+function toCSV (tt)
+  local s = ""
+  for _,p in ipairs(tt) do  
+    s = s .. "," .. escapeCSV(p)
+  end
+  return string.sub(s, 2)      -- remove first comma
+end
+
+-- Catch ctrl-c
+function catchSigInt(Brain, nSteps)
+  signal.signal(signal.SIGINT, function(signum)
+    print('SIGINT received')
+    print('Save agent (y/n)?')
+    if io.read() == 'y' then
+      print('Saving agent')
+      torch.save('brain.t7', Brain) -- Save agent to resume training
+	  nStepsCSV = toCSV(nSteps)
+	  print('Saving results')
+	  io.output("nSteps.txt")
+	  io.write(nStepsCSV)
+    end
+    print('Exiting')
+    os.exit(128 + signum)
+  end)
+end
+
 
 -- Mountain Car Variables
 local observation = env:start()
@@ -16,33 +55,41 @@ local reward, terminal
 local steps, episodes, totalReward = 0, 0, 0
 
 -- Number of training episodes
-local trainingEpisodes = 50
-
--- Result tables
-local endPosition = {}
-local nSteps = {}
+local trainingEpisodes = 200
 
 -- Initialize NN with 2 inputs and 3 outputs
-Brain.init(2, 3)
+print('Load agent? ')
+if io.read() == 'y' then
+	print('Loading brain.t7')
+	Brain = torch.load('brain.t7')
+else
+	Brain.init(2, 3)
+	Brain.totalReward = 0
+	Brain.episodes = 0
+	Brain.nSteps = {}
+end
 
-while episodes < trainingEpisodes do
+catchSigInt(Brain, Brain.nSteps)
+
+while Brain.episodes < trainingEpisodes do
 	-- Send observations (x, y) to NN and select action
 	-- -2 as NN returns {0 1 2} but action should be {-1 0 1}
 	local action = Brain.forward(observation) - 2 
 	reward, observation, terminal = env:step(action)
-	totalReward = totalReward + reward
+	Brain.totalReward = Brain.totalReward + reward
 	steps = steps + 1
-	print(episodes)
+	print('Episode: ' .. Brain.episodes)
+	print('Step = ' .. steps)
 	print(observation)
+	print('Reward: ' .. reward)
 	-- Apply Q-learning to network using obtained reward
 	Brain.backward(reward)
 	if terminal then
-		table.insert(endPosition, observation[2])
-		table.insert(nSteps, steps)
+		table.insert(Brain.nSteps, steps)
 		print('Episode: ' .. episodes)
 		print('Steps: ' .. steps)
-		print('Total Reward: ' .. totalReward)
-		episodes = episodes + 1
+		print('Total Reward: ' .. Brain.totalReward)
+		Brain.episodes = Brain.episodes + 1
 		steps = 0
 		observation = env:start()
 	end
@@ -50,8 +97,10 @@ end
 print('Total episodes: ' .. episodes)
 
 -- Save results
-Brain.save("MCDQN.dat")
-endPositionS = torch.serialize(endPosition, "ascii")
-nStepsS = torch.serialize(nSteps, "ascii")
-torch.save("endPosition.txt", endPositionS, "ascii")
-torch.save("nSteps.txt", nStepsS, "ascii")
+print('Saving agent')
+torch.save('brain.t7', Brain) -- Save agent to resume training
+print('Saving results')
+nStepsCSV = toCSV(Brain.nSteps)
+io.output("nSteps.txt")
+io.write(nStepsCSV)
+

@@ -1,7 +1,9 @@
 -- Grid World adaptation. Attempts to drive car to position (3,3). Terminal states out of 9x9 box around origin (0, 0)
 -- Libraries
+require('nn')
 local async = require('async')
 local Brain = require('deepqlearn')
+local signal = require('posix.signal')
 
 -- Utility functions
 function sleep(n)
@@ -21,6 +23,42 @@ function http_get(equery)
 	async.go()
 	return position
 end
+-- Used to escape "'s by toCSV
+function escapeCSV (s)
+  if string.find(s, '[,"]') then
+    s = '"' .. string.gsub(s, '"', '""') .. '"'
+  end
+  return s
+end
+-- Convert from table to CSV string
+function toCSV (tt)
+  local s = ""
+  for _,p in ipairs(tt) do  
+    s = s .. "," .. escapeCSV(p)
+  end
+  return string.sub(s, 2)      -- remove first comma
+end
+-- Catch ctrl-c
+function catchSigInt(Brain, nSteps, nReward)
+  signal.signal(signal.SIGINT, function(signum)
+    print('SIGINT received')
+    print('Save agent (y/n)?')
+    if io.read() == 'y' then
+      print('Saving agent')
+      torch.save('brain.t7', Brain) -- Save agent to resume training
+	  print('Saving results: nSteps.txt & nReward.txt')
+	  nStepsCSV = toCSV(nSteps)
+	  io.output("nSteps.txt")
+	  io.write(nStepsCSV)
+	  nRewardCSV = toCSV(nReward)
+	  io.output("nReward.txt")
+	  io.write(nRewardCSV)
+    end
+    print('Exiting')
+    os.exit(128 + signum)
+  end)
+end
+
 
 -- Mountain Car functions
 function get_state(oldPosition)
@@ -34,7 +72,7 @@ function get_state(oldPosition)
 	else
 		terminal = false
 	end
-	reward = -(torch.abs(position.x - 3) + torch.abs(position.y - 3))
+	reward = 0 - (torch.abs(position.x - 3) + torch.abs(position.y - 3))
 	return {position.x, position.y}, velocity, terminal, reward
 end
 
@@ -44,21 +82,36 @@ function reset_state()
 end
 
 -- Constants to be set
-local nEpisodes = 50
+local nEpisodes = 100
 local actionTime = 1
 local realTimeFactor = 3
 local nActions = 3
 
 -- Variables
-local episodes, steps, totalReward = 0, 0, 0
+local episodes, steps, totalReward, count = 0, 0, 0, 0
 local position, velocity, terminal, reward, observation
 
--- Result tables
-local nSteps = {}
-local nReward = {}
-
 -- Initialize NN with 4 inputs (positions and velocity) and 3 outputs (actions)
-Brain.init(4, 3)
+print('Load agent? y/n')
+if io.read() == 'y' then
+	print('Loading brain.t7')
+	Brain = torch.load('brain.t7')
+	actionTime = Brain.actionTime
+	print('loaded')
+	print(Brain.nSteps)
+	print(Brain.nReward)
+else
+	Brain.init(4, 3)
+	Brain.episodes = 0
+	Brain.totalReward = 0
+	Brain.actionTime = actionTime
+	Brain.nSteps = {}
+	Brain.nReward = {}
+end
+
+-- Catch ctrl-c
+catchSigInt(Brain, Brain.nSteps, Brain.nReward)
+
 -- Set real time factor
 http_get({type = 'real_time_factor', select = realTimeFactor})
 -- Reset position and action
@@ -66,43 +119,53 @@ reset_state()
 http_get({type = 'pause', select = '0'})
 position, velocity, terminal, reward = get_state({0, 0})
 
-while episodes < nEpisodes do
-	-- Send input to brain and receive action (int)
-	local action = Brain.forward(position)
-	-- Send action to gazebo
-	http_get({type = 'action', select = action})
-	-- Allow action to run for designated action time
-	sleep(actionTime)
-	-- Pause
-	http_get({type = 'pause', select = '1'})
-	-- Unpause
-	http_get({type = 'pause', select = '0'})
+while Brain.episodes < nEpisodes do
 	-- Extract state
 	position, velocity, terminal, reward = get_state(position)
 	observation = position
 	table.insert(observation, velocity[1])
 	table.insert(observation, velocity[2])
+	-- Pause
+	-- http_get({type = 'pause', select = '1'})
+	-- Send input to brain and receive action (int)
+	local action = Brain.forward(observation)
+	-- Unpause
+	-- http_get({type = 'pause', select = '0'})
+	-- Send action to gazebo
+	http_get({type = 'action', select = action})
+	-- Allow action to run for designated action time
+	sleep(actionTime)
+
 	-- Send reward to NN for learning
 	Brain.backward(reward)
+	count = count + 1
 	steps = steps + 1
-	totalReward = totalReward + reward
+	Brain.totalReward = Brain.totalReward + reward
 	if terminal == true then
-		table.insert(nSteps, steps)
-		table.insert(nReward, totalReward)
-		episodes = episodes + 1
+		table.insert(Brain.nSteps, steps)
+		table.insert(Brain.nReward, Brain.totalReward)
+		Brain.episodes = Brain.episodes + 1
 		reset_state()
 		steps = 0
-		totalReward = 0
+		Brain.totalReward = 0
+		position = {0, 0}
+
+		if episodes == nEpisodes - 10 then
+			io.read()
+		end
 	end
-	print('Episode: ' .. episodes)
+	print('Episode: ' .. Brain.episodes)
 	print('Steps: ' .. steps)
+	print('Total Steps: ' .. count)
 	print('Reward: ' .. reward)
-	print('Total Reward: ' .. totalReward)
+	print('Total Reward: ' .. Brain.totalReward)
 end
-nStepsS = torch.serialize(nSteps, "ascii")
-torch.save("nSteps.txt", nStepsS, "ascii")
-nStepsS = torch.serialize(nReward, "ascii")
-torch.save("Rewards.txt", nStepsS, "ascii")
+nStepsCSV = toCSV(Brain.nSteps)
+io.output("nSteps.txt")
+io.write(nStepsCSV)
+nRewardCSV = toCSV(Brain.nReward)
+io.output("nReward.txt")
+io.write(nRewardCSV)
 
 
 

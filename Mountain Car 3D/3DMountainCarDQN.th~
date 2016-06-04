@@ -1,0 +1,184 @@
+-- 3D Mountain Car with DQN
+-- Libraries
+require('nn')
+local async = require('async')
+local Brain = require('deepqlearn')
+local signal = require('posix.signal')
+
+-- Utility functions
+function sleep(n)
+  os.execute("sleep " .. tonumber(n))
+end
+
+function http_get(equery)
+	async.curl.get({
+		host = 'http://localhost:8124',
+		query = equery,
+		format = 'json'
+	}, function(res)
+		if equery['type'] == 'state' then
+			position = res['pose'][1]['position']
+			orientation = res['pose'][1]['orientation']
+		end
+	end)
+	async.go()
+	return position, orientation
+end
+
+-- Used to escape "'s by toCSV
+function escapeCSV (s)
+  if string.find(s, '[,"]') then
+    s = '"' .. string.gsub(s, '"', '""') .. '"'
+  end
+  return s
+end
+
+-- Convert from table to CSV string
+function toCSV (tt)
+  local s = ""
+  for _,p in ipairs(tt) do  
+    s = s .. "," .. escapeCSV(p)
+  end
+  return string.sub(s, 2)      -- remove first comma
+end
+
+-- Catch ctrl-c
+function catchSigInt(Brain, nSteps, nReward)
+  signal.signal(signal.SIGINT, function(signum)
+    print('SIGINT received')
+    print('Save agent (y/n)?')
+    if io.read() == 'y' then
+      print('Saving agent')
+      torch.save('brain.t7', Brain) -- Save agent to resume training
+	  print('Saving results: nSteps.txt & nReward.txt')
+	  nStepsCSV = toCSV(nSteps)
+	  io.output("nSteps.txt")
+	  io.write(nStepsCSV)
+	  nRewardCSV = toCSV(nReward)
+	  io.output("nReward.txt")
+	  io.write(nRewardCSV)
+    end
+    print('Exiting')
+    os.exit(128 + signum)
+  end)
+end
+
+function reset_state()
+	http_get({type = 'reset'})
+	http_get({type = 'action', select = '0'})
+end
+
+-- Mountain Car functions
+function get_state(oldPosition)
+	local terminal, reward, position
+	local velocity = {}
+	position = http_get({type = 'state', select = '0'})
+	velocity[1] = oldPosition[1] - position.x
+	velocity[2] = oldPosition[2] - position.z
+	velocity[3] = oldPosition[3] - position.y
+	-- Goal at x > 4.5 which is close to the highest point of the ramp. This is due to ramp design.
+	-- y > 0.5 in case car flies of the side of the ramp
+	terminal = false
+	if torch.abs(position.y) > 0.5 then
+		reset_state()
+	end
+	if torch.abs(position.x) > 4.5 then
+		terminal = true
+	end
+	-- Reward is height -> Aims to drive as high as possible
+	reward = position.z
+	return {position.x, position.y, position.z}, velocity, terminal, reward
+end
+
+-- Constants to be set
+local nEpisodes = 100
+local actionTime = 0.1
+local realTimeFactor = 1
+local nActions = 3
+
+-- Variables
+local episodes, totalReward, count = 0, 0, 0, 0
+local position, velocity, terminal, reward, observation
+
+-- Initialize NN with 4 inputs (positions and velocity) and 3 outputs (actions)
+print('Load agent? y/n')
+if io.read() == 'y' then
+	print('Loading brain.t7')
+	Brain = torch.load('brain.t7')
+	actionTime = Brain.actionTime
+	print('loaded')
+	print(Brain.nSteps)
+	print(Brain.nReward)
+else
+	Brain.init(6, 3)
+	Brain.episodes = 0
+	Brain.totalReward = 0
+	Brain.actionTime = actionTime
+	Brain.steps = 0
+	Brain.nSteps = {}
+	Brain.nReward = {}
+end
+
+-- Catch ctrl-c
+catchSigInt(Brain, Brain.nSteps, Brain.nReward)
+
+-- Set real time factor
+http_get({type = 'real_time_factor', select = realTimeFactor})
+-- Reset position and action
+reset_state()
+http_get({type = 'pause', select = '0'})
+position, velocity, terminal, reward = get_state({0, 0, 0})
+
+while Brain.episodes < nEpisodes do
+	-- Extract state
+	position, velocity, terminal, reward = get_state(position)
+	observation = position
+	table.insert(observation, velocity[1])
+	table.insert(observation, velocity[2])
+	table.insert(observation, velocity[3])
+	-- Pause
+	-- http_get({type = 'pause', select = '1'})
+	-- Send input to brain and receive action (int)
+	local action = Brain.forward(observation)
+	-- Unpause
+	-- http_get({type = 'pause', select = '0'})
+	-- Send action to gazebo
+	http_get({type = 'action', select = action})
+	-- Allow action to run for designated action time
+	sleep(actionTime)
+
+	-- Send reward to NN for learning
+	Brain.backward(reward)
+	count = count + 1
+	Brain.steps = Brain.steps + 1
+	Brain.totalReward = Brain.totalReward + reward
+	if terminal == true then
+		table.insert(Brain.nSteps, Brain.steps)
+		table.insert(Brain.nReward, Brain.totalReward)
+		Brain.episodes = Brain.episodes + 1
+		reset_state()
+		Brain.steps = 0
+		Brain.totalReward = 0
+		position = {0, 0, 0}
+
+		if episodes == nEpisodes - 10 then
+			io.read()
+		end
+	end
+	print('Episode: ' .. Brain.episodes)
+	print('Steps: ' .. Brain.steps)
+	print('Total Steps: ' .. count)
+	print('Reward: ' .. reward)
+	print('Total Reward: ' .. Brain.totalReward)
+end
+nStepsCSV = toCSV(Brain.nSteps)
+io.output("nSteps.txt")
+io.write(nStepsCSV)
+nRewardCSV = toCSV(Brain.nReward)
+io.output("nReward.txt")
+io.write(nRewardCSV)
+
+
+
+
+

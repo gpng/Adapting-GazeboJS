@@ -1,0 +1,41 @@
+{
+	"states": 
+	[
+		{"type": "gazebo.msgs.PosesStamped", "topic": "~/pose/info"}
+	],
+	"actions":
+	[
+		[
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/husky/joint_cmd", "msg": { "name": "husky::back_left_joint", "force": 0 }},
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/husky/joint_cmd", "msg": { "name": "husky::back_right_joint", "force": 0 }},
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/husky/joint_cmd", "msg": { "name": "husky::front_left_joint", "force": 0 }},
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/husky/joint_cmd", "msg": { "name": "husky::front_right_joint", "force": 0 }},
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/husky/joint_cmd", "msg": { "name": "husky::back_left_joint", "velocity": { "target": 0 }}},
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/husky/joint_cmd", "msg": { "name": "husky::back_right_joint", "velocity": { "target": 0 }}},
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/husky/joint_cmd", "msg": { "name": "husky::front_left_joint", "velocity": { "target": 0 }}},
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/husky/joint_cmd", "msg": { "name": "husky::front_right_joint", "velocity": { "target": 0 }}}
+		],
+		[
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/husky/joint_cmd", "msg": { "name": "husky::back_left_joint", "force": 10 }},
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/husky/joint_cmd", "msg": { "name": "husky::back_right_joint", "force": 10 }},
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/husky/joint_cmd", "msg": { "name": "husky::front_left_joint", "force": 10 }},
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/husky/joint_cmd", "msg": { "name": "husky::front_right_joint", "force": 10 }}
+		],
+		[
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/husky/joint_cmd", "msg": { "name": "husky::back_left_joint", "force": 0 }},
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/husky/joint_cmd", "msg": { "name": "husky::back_right_joint", "force": 0 }},
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/husky/joint_cmd", "msg": { "name": "husky::front_left_joint", "force": 0 }},
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/husky/joint_cmd", "msg": { "name": "husky::front_right_joint", "force": 0 }}
+		],
+		[
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/husky/joint_cmd", "msg": { "name": "husky::back_left_joint", "force": -10 }},
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/husky/joint_cmd", "msg": { "name": "husky::back_right_joint", "force": -10 }},
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/husky/joint_cmd", "msg": { "name": "husky::front_left_joint", "force": -10 }},
+			{"type": "gazebo.msgs.JointCmd", "topic": "~/husky/joint_cmd", "msg": { "name": "husky::front_right_joint", "force": -10 }}
+		]
+	],
+	"cameras":
+	[
+		{"topic": "~/camera/link/camera/image", "msg": "image1.jpeg"}
+	]
+}
